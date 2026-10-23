@@ -156,11 +156,18 @@ button:focus:not(:focus-visible){outline:none}
 .insp .ie{padding:10px 16px;font-size:14px;color:#6b7280}
 .insp .ia{display:flex;gap:8px;padding:10px 16px 0}.insp .ia input{flex:1;min-width:0;height:44px;font-size:16px;padding:0 10px;border:1px solid #d1d5db;border-radius:10px;background:#fff;color:#111}
 .insp .ia button{min-width:64px;height:44px;border:0;border-radius:10px;background:#1d4ed8;color:#fff;font-size:16px;font-weight:600}
+
+.loglink{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:10px;background:var(--tint);color:var(--accent);font-size:15px;font-weight:600;text-decoration:none;white-space:nowrap}
+.loglink:active{opacity:.5}
+.plan a{color:var(--accent);font-weight:600}
+.dot.h{background:#FF6A00}
+.lab.h{color:#C2410C}
+.legend i.h{border-color:#FF6A00}
 </style>
 </head>
 <body>
 <header class="top"><div class="in">
-  <div class="titlerow"><h1 id="h-title"></h1><div class="subt" id="h-sub"></div></div>
+  <div class="titlerow"><h1 id="h-title"></h1><div class="subt" id="h-sub"></div><a class="loglink" href="https://claude.ai/artifact/V7b51Q19aUA2mAYyKc3HCn" target="_blank" rel="noopener">+ Log today</a></div>
   <div class="ctrls">
     <div class="seg" role="tablist"><button role="tab" id="v-w" aria-selected="true">Week</button><button role="tab" id="v-m" aria-selected="false">Month</button></div>
     <div class="nav">
@@ -212,8 +219,16 @@ function items(day){
   const k = day.kubot;
   const out = [{id: day.date+":k", kind:"k", meta:"Kubot", label:k.format, title:k.title, sub:k.sub, needs:!!k.needs, src:k}];
   day.personal.forEach((p,i) => out.push({id: day.date+":v"+i, kind:"p", meta:"Personal", label:p.label, time:p.time, title:p.title, sub:p.label + (p.s && p.s.fmt ? " \u00b7 " + p.s.fmt : ""), fmt:(p.s && p.s.fmt) || "", needs:!p.has, src:p}));
+  const hh = H100[day.date];
+  if (hh) out.push({id: day.date+":h", kind:"h", meta:"100 in 100", label:"100 in 100", title: hh.textHook || ("Day " + hh.day), sub: "Day " + hh.day + " · 100 in 100", needs:false, src: hh});
   return out;
 }
+let H100 = {};
+fetch("./100in100/scripts.json", {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(j => {
+  if (!j || !Array.isArray(j.scripts)) return;
+  j.scripts.forEach(s => { if (s && s.date) H100[s.date] = s; });
+  render();
+}).catch(() => {});
 function checkBtn(id, label, cls){
   return '<button class="'+(cls||"check")+'" role="checkbox" aria-checked="'+(!!done[id])+'" aria-label="Done: '+esc(label)+'" data-id="'+esc(id)+'"><i></i>'+(cls?'<span>Mark as done</span>':'')+'</button>';
 }
@@ -222,10 +237,11 @@ function card(it){
   let foot = "";
   if (it.kind === "p" && it.fmt) foot += '<span class="fm">'+esc(it.fmt)+'</span>';
   if (it.kind === "k" && it.src.film && it.src.film.length) foot += '<span>Film today</span>';
+  if (it.kind === "h") foot += '<span class="fm">Day '+esc(it.src.day)+'</span>';
   if (it.needs) foot += '<span class="pill">Needs script</span>';
   return '<div class="card'+(it.needs?" needs":"")+(done[it.id]?" done":"")+'">' +
     '<button class="copen" data-open="'+esc(it.id)+'" aria-label="'+esc((it.kind==="k"?"Kubot ":"")+it.label+": "+ttl)+'">' +
-    '<div class="lab'+(it.kind==="k"?" k":"")+'"><span class="dot'+(it.kind==="k"?" k":"")+'"></span><span class="t">'+esc(SHORT[it.label]||it.label)+'</span></div>' +
+    '<div class="lab'+(it.kind==="k"?" k":(it.kind==="h"?" h":""))+'"><span class="dot'+(it.kind==="k"?" k":(it.kind==="h"?" h":""))+'"></span><span class="t">'+esc(SHORT[it.label]||it.label)+'</span></div>' +
     '<div class="ttl">'+esc(ttl)+'</div>' + (foot ? '<div class="foot">'+foot+'</div>' : '') + '</button>' +
     checkBtn(it.id, it.label) + '</div>';
 }
@@ -256,17 +272,17 @@ function renderMonth(){
     const dt = parse(ds), inM = dt.getMonth() === m-1, d = BY[ds];
     if (i >= 35 && !inM && dt.getDay() === 1) break;
     if (d){
-      const dots = items(d).map(it => '<i class="'+(it.kind==="k"?"k":"")+(done[it.id]?" on":"")+'"></i>').join("");
+      const dots = items(d).map(it => '<i class="'+(it.kind==="k"?"k":(it.kind==="h"?"h":""))+(done[it.id]?" on":"")+'"></i>').join("");
       h += '<button class="mc'+(inM?"":" out")+(ds===TODAY?" today":"")+'" data-day="'+ds+'" aria-label="'+esc(nice(ds))+'"><span class="n">'+dt.getDate()+'</span><span class="ds">'+dots+'</span>'+(dt.getDay()===5?'<span class="fr">Class</span>':'')+'</button>';
     } else h += '<div class="mc off'+(inM?"":" out")+(ds===TODAY?" today":"")+'"><span class="n">'+dt.getDate()+'</span></div>';
     ds = add(ds, 1);
   }
-  h += '</div><div class="legend"><span><i class="k"></i>Kubot</span><span><i></i>Personal</span><span><i class="on"></i>Done</span></div>';
+  h += '</div><div class="legend"><span><i class="k"></i>Kubot</span><span><i></i>Personal</span><span><i class="h"></i>100 in 100</span><span><i class="on"></i>Done</span></div>';
   $("month").innerHTML = h;
 }
 function renderPlan(){
   const m = DATA.mix;
-  $("plan").innerHTML = '<b>This week\'s plan.</b> One Kubot post and one personal post a day. ' + m.days.map(x => esc(x[0]+" "+x[1])).join(" \u00b7 ") + '. ' + esc(m.personal) + ' ' + esc(m.line);
+  $("plan").innerHTML = '<b>This week\'s plan.</b> One Kubot post and one personal post a day. ' + m.days.map(x => esc(x[0]+" "+x[1])).join(" \u00b7 ") + '. ' + esc(m.personal) + ' ' + esc(m.line) + ' <a href="https://claude.ai/artifact/V7b51Q19aUA2mAYyKc3HCn" target="_blank" rel="noopener">Open the 100 in 100 Log</a>. Each night your entry becomes a script on the calendar.';
 }
 function render(){
   $("week").hidden = view !== "week"; $("month").hidden = view !== "month";
@@ -363,6 +379,16 @@ function openSheet(id){
     h += inspHTML(id, k.inspiration);
     if (k.film && k.film.length) k.film.forEach(f => (f.sections || []).forEach(s => h += secHTML(s)));
     k.sections.forEach(s => h += secHTML(s));
+  } else if (it.kind === "h") {
+    const s = it.src;
+    h += secHTML(["Text hook", "rows", [["Your text hook (on screen)", s.textHook || ""], ["Inspo video's text hook", "DAY 32 / Building a business in ONE DAY"]]]);
+    h += '<div class="section-h">Spoken hooks</div><div class="group">' + (s.hooks||[]).map((x,i) => '<div class="hk"><b>'+(i+1)+'</b><span>'+esc(x)+'</span></div>').join("") + '</div>';
+    h += '<div class="section-h">Body</div><div class="group"><div class="pre">'+esc(s.body)+'</div></div>';
+    h += '<div class="section-h">CTA</div><div class="group"><div class="cta">'+esc(s.cta)+'</div></div>';
+    if (s.caption) h += secHTML(["Caption", "text", s.caption]);
+    if (s.shots && s.shots.length) h += secHTML(["Shots", "list", s.shots]);
+    if (s.fillins) h += secHTML(["Fill-ins", "text", s.fillins]);
+    h += inspHTML(id, ["https://www.instagram.com/reel/C1kzUmsRcEl/", "https://www.instagram.com/reel/C23BpgAvnSH/", "https://www.instagram.com/reel/Ddw9G7eyvfP/"]);
   } else {
     const p = it.src;
     h += secHTML(["What this post is", "rows", [["Series", p.label + ": " + p.desc], ["Format", (p.s && p.s.fmt) || ""]].concat(p.s && p.s.format && p.s.format !== p.s.fmt ? [["Script format", p.s.format]] : [])]);
